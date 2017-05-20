@@ -2,6 +2,7 @@ import socket
 import json
 from threading import Thread
 
+
 class XenoTable:
     def __init__(self,ip,port):
         self.__connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -104,7 +105,7 @@ class XenoTable:
         return "XenoTable bound to " + self.ip + ":" + str(self.port)
 class Communicator(Thread):
     Communicators = {}
-    CurrentPort = 10000
+    CurrentPort = 80
     debug = True
     
     @staticmethod
@@ -266,17 +267,4 @@ CC = Communicator
 XT = XenoTable
 CC.debug = False
 
-def __main():
-    global d
-    global l
-    global s
-    global c
-    global x
-    d = {}
-    l = []
-    s = CC.localSock()
-    c = CC(s,d,l)
-    x = XT(c.ip,c.port)
 
-if __name__ == "__main__":
-    pass#__main()
