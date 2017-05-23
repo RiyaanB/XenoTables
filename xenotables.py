@@ -141,16 +141,15 @@ class Communicator(Thread):
                     print(Communicator.CurrentPort)
         return sock
 
-    def init(self,sock,data,com):
+    def init(self,sock,data):
         super().__init__()
         self.sock = sock
         self.port = sock.getsockname()[1]
         self.ip = sock.getsockname()[0]
         self.start()
         self.data = data
-        com.append((self.port,self.ip))
-    def __init__(self,sock,data,com):
-        self.init(sock,data,com)
+    def __init__(self,sock,data):
+        self.init(sock,data)
     def recv(self,limit):
         command = ""
         num = 0
