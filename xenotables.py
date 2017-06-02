@@ -105,7 +105,7 @@ class XenoTable:
         return "XenoTable bound to " + self.ip + ":" + str(self.port)
 class Communicator(Thread):
     Communicators = {}
-    CurrentPort = 80
+    CurrentPort = 10000
     debug = True
     
     @staticmethod
@@ -170,7 +170,7 @@ class Communicator(Thread):
                 print("Listening at",self.port)
             self.sock.listen(16)
             self.connection = self.sock.accept()[0]
-            Communicator(self.sock,self.data,[])
+            Communicator(self.sock,self.data)
             self.send("true*")
             while self.status:
                 command = self.recv(1)
@@ -194,7 +194,7 @@ class Communicator(Thread):
                     self.connection.send((str(newSock[1]) + "*").encode("UTF-8"))
                     if Communicator.debug:
                         print("Sent",newSock[1])
-                    Communicator(newSock,{},[])
+                    Communicator(newSock,{})
                 #Join Table
                 elif command[0] == "R":
                     if Communicator.debug:
