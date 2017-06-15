@@ -103,10 +103,12 @@ class XenoTable:
         self.__connection.close()
     def __str__(self):
         return "XenoTable bound to " + self.ip + ":" + str(self.port)
+
+    
 class Communicator(Thread):
     Communicators = {}
     CurrentPort = 10000
-    debug = True
+    debug = False
     
     @staticmethod
     def myIP():
@@ -262,8 +264,7 @@ class Communicator(Thread):
         finally:
             self.connection.close()
             self.status = False
+
+
 CC = Communicator
 XT = XenoTable
-CC.debug = False
-
-
