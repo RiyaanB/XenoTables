@@ -5,7 +5,7 @@ from threading import Thread
 
 class XenoTable:
     def __init__(self,ip,port):
-        self.__connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.__connection = socket.socket()
         self.__connection.connect((ip,port))
         self.ip = ip
         self.port = port
@@ -119,7 +119,7 @@ class Communicator(Thread):
     @staticmethod
     def localSock():
         ip = CC.myIP()
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket()
         while True:
             try:
                 sock.bind((ip,Communicator.CurrentPort))
