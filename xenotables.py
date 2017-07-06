@@ -132,7 +132,7 @@ class Communicator(Thread):
     
     @staticmethod
     def createSock(ip):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket()
         while True:
             try:
                 sock.bind((ip,Communicator.CurrentPort))
