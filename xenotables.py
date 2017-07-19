@@ -107,7 +107,7 @@ class XenoTable:
     
 class Communicator(Thread):
     Communicators = {}
-    CurrentPort = 10000
+    CurrentPort = 3000
     debug = False
     
     @staticmethod
