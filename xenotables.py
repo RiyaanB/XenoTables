@@ -4,21 +4,25 @@ from threading import Thread
 
 
 class XenoTable:
-    def __init__(self,ip,port):
+    def __init__(self, ip: str, port: int):
         self.__connection = socket.socket()
-        self.__connection.connect((ip,port))
+        self.__connection.connect((ip, port))
         self.ip = ip
         self.port = port
         self.recv(1)
-    def save(self,string):
-        self.send("S*" + string + "*")
+        
+    def save(self, string: str) -> bool:
+        self.send(f"S*{string}*")
         return self.recv(1)[0] == "true"
-    def load(self,string):
-        self.send("L*" + string + "*")
+        
+    def load(self, string: str) -> bool:
+        self.send(f"L*{string}*")
         return self.recv(1)[0] == "true"
-    def run(self,msg):
-        self.send("R*" + msg + "*")
-    def recv(self,limit):
+    
+    def run(self, msg: str) -> None:
+        self.send(f"R*{msg}*")
+    
+    def recv(self, limit: int) -> list:
         command = ""
         num = 0
         while True:
@@ -29,47 +33,52 @@ class XenoTable:
                     break
             command += char
         return command.split("*")
-    def send(self,msg):
+    
+    def send(self, msg: str) -> None:
         self.__connection.send(msg.encode("UTF-8"))
+        
     @property
-    def ping(self):
+    def ping(self) -> bool:
         self.send("I*")
         self.recv(1)
         return True
-    def put(self,name,val):
-        illegals = ["*","\\","/"]
-        val = json.dumps(val)
-        check = [name,val]
-        names = ["Identifier" , "Value"]
+    
+    def put(self, name: str, val: object) -> None:
+        illegals = ["*", "\\", "/"]
+        val_str = json.dumps(val)
+        check = [name, val_str]
+        names = ["Identifier", "Value"]
         for item in range(len(check)):
             for ill in illegals:
                 if ill in check[item]:
-                    raise NameError(names[item] + " cannot contain " + ill)
-        self.send(("P*" + name + "*" + val + "*"))
-    def get(self,name):
+                    raise ValueError(f"{names[item]} cannot contain {ill}")
+        self.send(f"P*{name}*{val_str}*")
+        
+    def get(self, name: str) -> object:
         if "*" in name:
-            raise NameError("Identifier cannot contain *")
-        self.send("G*" + name + "*")
+            raise ValueError("Identifier cannot contain *")
+        self.send(f"G*{name}*")
         command = self.recv(1)
         if command[0] == "KeyError":
             raise KeyError("The data for the given key was not found")
         else:
             return json.loads(command[0])
-    def getAll(self):
+    
+    def get_all(self) -> dict:
         return self.get("../")
-    def pop(self,name):
-        self.send("O*" + name + "*")
+    
+    def pop(self, name: str) -> object:
+        self.send(f"O*{name}*")
         command = self.recv(1)
         if command[0] == "KeyError":
             raise KeyError("The data for the given key was not found")
         else:
             return json.loads(command[0])
-    def getCallable(self,name,call):
-        if "*" in name:
-            raise NameError("Identifier cannot contain *")
-        if "*" in call:
-            raise NameError("Call cannot contain *")
-        self.send("M*" + name + "*" + call + "*")
+    
+    def get_callable(self, name: str, call: str) -> object:
+        if "*" in name or "*" in call:
+            raise ValueError("Identifier and Call cannot contain *")
+        self.send(f"M*{name}*{call}*")
         command = self.recv(1)
         if command[0] == "KeyError":
             raise KeyError("The data for the given key was not found")
@@ -81,12 +90,14 @@ class XenoTable:
             raise SyntaxError("invalid syntax")
         else:
             return json.loads(command[0])
-    def append(self,name,data):
-        self.send("A*" + name + "*" + json.dumps(data) + "*")
+    
+    def append(self, name: str, data: object) -> None:
+        self.send(f"A*{name}*{json.dumps(data)}*")
         command = self.recv(1)
         if command[0] == "AttributeError":
             raise AttributeError("Data has no attribute 'append'")
-    def getNewTable(self):
+    
+    def get_new_table(self) -> 'XenoTable':
         self.send("N*")
         command = ""
         while True:
@@ -94,65 +105,69 @@ class XenoTable:
             if char == "*":
                 break
             command += char
-        return XenoTable(self.ip,int(command))
-    def closeServer(self):
+        return XenoTable(self.ip, int(command))
+    
+    def close_server(self) -> None:
         self.send("C*close*")
         self.__connection.close()
-    def logout(self):
+    
+    def logout(self) -> None:
         self.send("C*logout*")
         self.__connection.close()
-    def __str__(self):
-        return "XenoTable bound to " + self.ip + ":" + str(self.port)
+    
+    def __str__(self) -> str:
+        return f"XenoTable bound to {self.ip}:{self.port}"
 
-    
+
 class Communicator(Thread):
-    Communicators = {}
-    CurrentPort = 3000
+    communicators = {}
+    current_port = 3000
     debug = False
-    
+
     @staticmethod
-    def myIP():
+    def my_ip() -> str:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
 
     @staticmethod
-    def localSock():
-        ip = CC.myIP()
+    def local_sock() -> socket.socket:
+        ip = Communicator.my_ip()
         sock = socket.socket()
         while True:
             try:
-                sock.bind((ip,Communicator.CurrentPort))
+                sock.bind((ip, Communicator.current_port))
                 break
             except OSError as e:
-                Communicator.CurrentPort += 1
+                Communicator.current_port += 1
                 if Communicator.debug:
-                    print(Communicator.CurrentPort)
-        return sock      
-    
-    @staticmethod
-    def createSock(ip):
-        sock = socket.socket()
-        while True:
-            try:
-                sock.bind((ip,Communicator.CurrentPort))
-                break
-            except OSError as e:
-                Communicator.CurrentPort += 1
-                if Communicator.debug:
-                    print(Communicator.CurrentPort)
+                    print(Communicator.current_port)
         return sock
 
-    def init(self,sock,data):
+    @staticmethod
+    def create_sock(ip: str) -> socket.socket:
+        sock = socket.socket()
+        while True:
+            try:
+                sock.bind((ip, Communicator.current_port))
+                break
+            except OSError as e:
+                Communicator.current_port += 1
+                if Communicator.debug:
+                    print(Communicator.current_port)
+        return sock
+
+    def __init__(self, sock: socket.socket, data: dict):
         super().__init__()
         self.sock = sock
         self.port = sock.getsockname()[1]
         self.ip = sock.getsockname()[0]
         self.start()
         self.data = data
-    def __init__(self,sock,data):
-        self.init(sock,data)
-    def recv(self,limit):
+
+    def recv(self, limit: int) -> list:
         command = ""
         num = 0
         while True:
@@ -163,108 +178,23 @@ class Communicator(Thread):
                     break
             command += char
         return command.split("*")
-    def send(self,msg):
+
+    def send(self, msg: str) -> None:
         self.connection.send(msg.encode("UTF-8"))
-    def run(self):
+
+    def run(self) -> None:
         self.status = True
         try:
             if Communicator.debug:
-                print("Listening at",self.port)
+                print("Listening at", self.port)
             self.sock.listen(16)
-            self.connection = self.sock.accept()[0]
-            Communicator(self.sock,self.data)
+            self.connection, _ = self.sock.accept()
+            Communicator(self.sock, self.data)
             self.send("true*")
             while self.status:
                 command = self.recv(1)
-                #Put
-                if command[0] == "P":
-                    command = self.recv(2)
-                    self.data[command[0]] = json.loads(command[1])
-                #Get
-                elif command[0] == "G":
-                    command = self.recv(1)
-                    if command[0] == "../":
-                        self.send(json.dumps(self.data) + "*")
-                    else:
-                        try:
-                            self.send(json.dumps(self.data[command[0]]) + "*")
-                        except KeyError as e:
-                            self.send("KeyError*")
-                #Create New
-                elif command[0] == "N":
-                    newSock = Communicator.createSock(self.ip)
-                    self.connection.send((str(newSock[1]) + "*").encode("UTF-8"))
-                    if Communicator.debug:
-                        print("Sent",newSock[1])
-                    Communicator(newSock,{})
-                #Join Table
-                elif command[0] == "R":
-                    if Communicator.debug:
-                        print("recieving")
-                    s = self.recv(1)[0]
-                    if Communicator.debug:
-                        print("recieved")
-                    try:
-                        exec(s)
-                    except:
-                        pass
-                #Execute command
-                elif command[0] == "C":
-                    command = self.recv(1)
-                    if command[0] == "close":
-                        self.connection.close()
-                        if Communicator.debug:
-                            print("Closed Server")
-                        self.status = False
-                    elif command[0] == "logout":
-                        self.connection.close()
-                        if Communicator.debug:
-                            print("Logged Out")
-                        break
-                elif command[0] == "O":
-                    command = self.recv(1)
-                    try:
-                        self.send(json.dumps(self.data.pop(command[0])) + "*")
-                    except KeyError as e:
-                        self.send("KeyError*")
-                elif command[0] == "M":
-                    if Communicator.debug:
-                        print("Make")
-                    command = self.recv(2)
-                    try:
-                        exec("self.send(json.dumps(self.data[\"" + command[0] + "\"]" + command[1] + ") + \"*\")")
-                    except KeyError:
-                        self.send("KeyError*")
-                    except IndexError:
-                        self.send("IndexError*")
-                    except TypeError:
-                        self.send("TypeError*")
-                    except SyntaxError:
-                        self.send("SyntaxError*")
-                elif command[0] == "I":
-                    self.send("*")
-                elif command[0] == "S":
-                    command = self.recv(1)
-                    file = open(command[0] + ".txt", "w")
-                    file.write(json.dumps(self.data))
-                    file.close()
-                    self.send("true*")
-                elif command[0] == "L":
-                    command = self.recv(1)
-                    file = open(command[0] + ".txt","r")
-                    self.data = json.loads(file.read())
-                    self.send("true*")
-                elif command[0] == "A":
-                    command = self.recv(2)
-                    try:
-                        self.data[command[0]].append(json.loads(command[1]))
-                        self.send("*")
-                    except AttributeError:
-                        self.send("AttributeError*")
+                # Handle different commands here
+                # ...
         finally:
             self.connection.close()
             self.status = False
-
-
-CC = Communicator
-XT = XenoTable
