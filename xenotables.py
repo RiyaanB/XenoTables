@@ -6,43 +6,59 @@ from threading import Thread
 class XenoTable:
     def __init__(self, ip: str, port: int):
         self.__connection = socket.socket()
-        self.__connection.connect((ip, port))
+        self.__connection.settimeout(5)  # Set a 5-second timeout for this socket operation
+        print(f"Attempting to connect to {ip}:{port}")
+        try:
+            self.__connection.connect((ip, port))
+            print("Connection successful")
+        except socket.timeout as e:
+            print(f"Connection timed out: {e}")
+            raise ConnectionError(f"Connection to {ip}:{port} timed out - {e}")
+        except socket.error as e:
+            print(f"Connection failed: {e}")
+            raise ConnectionError(f"Failed to connect to {ip}:{port} - {e}")
         self.ip = ip
         self.port = port
         self.recv(1)
-        
+
     def save(self, string: str) -> bool:
         self.send(f"S*{string}*")
         return self.recv(1)[0] == "true"
-        
+
     def load(self, string: str) -> bool:
         self.send(f"L*{string}*")
         return self.recv(1)[0] == "true"
-    
+
     def run(self, msg: str) -> None:
         self.send(f"R*{msg}*")
-    
+
     def recv(self, limit: int) -> list:
         command = ""
         num = 0
-        while True:
-            char = self.__connection.recv(1).decode("UTF-8")
-            if char == "*":
-                num += 1
-                if num == limit:
-                    break
-            command += char
+        try:
+            while True:
+                char = self.__connection.recv(1).decode("UTF-8")
+                if char == "*":
+                    num += 1
+                    if num == limit:
+                        break
+                command += char
+        except socket.error as e:
+            raise ConnectionError(f"Socket error occurred: {e}")
         return command.split("*")
-    
+
     def send(self, msg: str) -> None:
-        self.__connection.send(msg.encode("UTF-8"))
-        
+        try:
+            self.__connection.send(msg.encode("UTF-8"))
+        except socket.error as e:
+            raise ConnectionError(f"Socket error occurred: {e}")
+
     @property
     def ping(self) -> bool:
         self.send("I*")
         self.recv(1)
         return True
-    
+
     def put(self, name: str, val: object) -> None:
         illegals = ["*", "\\", "/"]
         val_str = json.dumps(val)
@@ -53,7 +69,7 @@ class XenoTable:
                 if ill in check[item]:
                     raise ValueError(f"{names[item]} cannot contain {ill}")
         self.send(f"P*{name}*{val_str}*")
-        
+
     def get(self, name: str) -> object:
         if "*" in name:
             raise ValueError("Identifier cannot contain *")
@@ -63,10 +79,13 @@ class XenoTable:
             raise KeyError("The data for the given key was not found")
         else:
             return json.loads(command[0])
-    
+
     def get_all(self) -> dict:
-        return self.get("../")
-    
+        data = self.get("../")
+        if not isinstance(data, dict):
+            raise TypeError("Expected data to be a dictionary")
+        return data
+
     def pop(self, name: str) -> object:
         self.send(f"O*{name}*")
         command = self.recv(1)
@@ -74,7 +93,7 @@ class XenoTable:
             raise KeyError("The data for the given key was not found")
         else:
             return json.loads(command[0])
-    
+
     def get_callable(self, name: str, call: str) -> object:
         if "*" in name or "*" in call:
             raise ValueError("Identifier and Call cannot contain *")
@@ -90,13 +109,13 @@ class XenoTable:
             raise SyntaxError("invalid syntax")
         else:
             return json.loads(command[0])
-    
+
     def append(self, name: str, data: object) -> None:
         self.send(f"A*{name}*{json.dumps(data)}*")
         command = self.recv(1)
         if command[0] == "AttributeError":
             raise AttributeError("Data has no attribute 'append'")
-    
+
     def get_new_table(self) -> 'XenoTable':
         self.send("N*")
         command = ""
@@ -106,15 +125,15 @@ class XenoTable:
                 break
             command += char
         return XenoTable(self.ip, int(command))
-    
+
     def close_server(self) -> None:
         self.send("C*close*")
         self.__connection.close()
-    
+
     def logout(self) -> None:
         self.send("C*logout*")
         self.__connection.close()
-    
+
     def __str__(self) -> str:
         return f"XenoTable bound to {self.ip}:{self.port}"
 
